@@ -2,16 +2,17 @@ import requests
 import json
 
 from .session import Session
-from ..exceptions import LoginInvalid
-from typing import Dict
+from ..exceptions import LoginInvalid, APIOperationNotImplemented
+from typing import Dict, Optional
+
 
 class HiveSession(Session):
-    _request_headers: Dict[str, str] = {"Content-Type": "application/vnd.alertme.zoo-6.6+json",
-                            "Accept": "application/vnd.alertme.zoo-6.6+json",
-                            "X-Omnia-Client": "krytenx"}
+    _request_headers: Dict[str, str] = {"Content-Type": "application/json", "Accept": "application/json",
+                                        "User-Agent": "Kryten 2X4B 523P"}
     _username: str
     _password: str
-    _session: str
+    _session: Optional[str] = None
+    _beekeeper: str = 'https://beekeeper.hivehome.com/1.0'
 
     def __init__(self, username: str, password: str) -> None:
         self._username = username
@@ -19,19 +20,37 @@ class HiveSession(Session):
         self.__create_session(self._username, self._password)
 
     def __create_session(self, username: str, password: str) -> None:
-        login = json.dumps({
-            "sessions": [{
-                "username": f"{username}",
-                "password": f"{password}",
-                "caller": "WEB"
-            }]
-        })
-        session_data = requests.post("https://api.prod.bgchprod.info:443/omnia/auth/sessions", login,
-                                     headers=self._request_headers)
+        login: Dict[str, str] = {"username": username,
+                                 "password": password}
+
+        session_data = self.execute_api_call(path='/global/login', payload=login, method='POST',
+                                             headers={"Content-Type": "application/json", "Accept": "application/json",
+                                                      "User-Agent": "Kryten 2X4B 523P"})
+
         if session_data.status_code != 200:
             print(session_data.json())
             raise LoginInvalid("Hive", username)
-        self._session = session_data.json()['sessions'][0]['sessionId']
+        self._session = session_data.json()['token']
+
+    def execute_api_call(self, path: str, payload: Dict[str, str] = {}, method: str = "GET",
+                         headers: Dict[str, str] = {}) -> requests.Response:
+        supported_ops = {
+            "POST": requests.post,
+            "GET": requests.get
+        }
+        if self.session_id is not None and "authorization" not in self._request_headers:
+            self._request_headers['authorization'] = self.session_id
+
+        if method not in supported_ops:
+            raise APIOperationNotImplemented(operation=method, url=f"{self._beekeeper}{path}")
+
+        response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers={})
+        if response.status_code != 200:
+            print(response.request.method)
+            print(response.request.headers)
+            print(response.status_code, response.content)
+            raise LoginInvalid(f"{self._beekeeper}{path}")
+        return response
 
     @property
     def session_id(self) -> str:
@@ -40,4 +59,3 @@ class HiveSession(Session):
     @session_id.setter
     def session_id(self, sid: str) -> None:
         raise AttributeError("Session ID cannot be explicitly set")
-
