@@ -1,12 +1,9 @@
-from ..exceptions import KrytenOperationNotImplemented
+from typing import Optional
+from abc import ABC, abstractmethod
 
-
-class Session:
-
-    session_id: str = None;
-
-    def __init__(self):
-        raise KrytenOperationNotImplemented
-
-
+class Session(ABC):
+    @property
+    @abstractmethod
+    def session_id(self) -> str:
+        pass
 

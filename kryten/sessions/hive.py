@@ -1,26 +1,24 @@
-import typing
 import requests
 import json
 
 from .session import Session
 from ..exceptions import LoginInvalid
-
+from typing import Dict
 
 class HiveSession(Session):
-    __request_headers: typing.Dict[str, str] = {"Content-Type": "application/vnd.alertme.zoo-6.6+json",
-                            "Accept": "application/vnd.alertme.zoo-6.1+json",
+    _request_headers: Dict[str, str] = {"Content-Type": "application/vnd.alertme.zoo-6.6+json",
+                            "Accept": "application/vnd.alertme.zoo-6.6+json",
                             "X-Omnia-Client": "krytenx"}
+    _username: str
+    _password: str
+    _session: str
 
-    session_id: str = None
-    __username: str = None
-    __password: str = None
+    def __init__(self, username: str, password: str) -> None:
+        self._username = username
+        self._password = password
+        self.__create_session(self._username, self._password)
 
-    def __init__(self, username: str, password: str):
-        self.__username = username
-        self.__password = password
-        self.__create_session(self.__username, self.__password)
-
-    def __create_session(self, username: str, password: str):
+    def __create_session(self, username: str, password: str) -> None:
         login = json.dumps({
             "sessions": [{
                 "username": f"{username}",
@@ -29,9 +27,17 @@ class HiveSession(Session):
             }]
         })
         session_data = requests.post("https://api.prod.bgchprod.info:443/omnia/auth/sessions", login,
-                                     headers=self.__request_headers)
+                                     headers=self._request_headers)
         if session_data.status_code != 200:
             print(session_data.json())
             raise LoginInvalid("Hive", username)
-        self.session_id = session_data.json()['sessions'][0]['sessionId']
+        self._session = session_data.json()['sessions'][0]['sessionId']
+
+    @property
+    def session_id(self) -> str:
+        return self._session
+
+    @session_id.setter
+    def session_id(self, sid: str) -> None:
+        raise AttributeError("Session ID cannot be explicitly set")
 

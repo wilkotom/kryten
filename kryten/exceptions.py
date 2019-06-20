@@ -1,4 +1,4 @@
-class KrytenOperationNotImplemented(Exception):
+class OperationNotImplemented(Exception):
     """Kryten doesn't yet know how to do this"""
 
 
