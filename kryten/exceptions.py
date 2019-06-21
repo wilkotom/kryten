@@ -12,3 +12,9 @@ class APIOperationNotImplemented(Exception):
     """An unsupported HTTP verb was supplied"""
     def __init__(self, operation: str = "UNKNOWN", url: str = "Unknown"):
         super().__init__(f"Can't send a {operation} request to {url}")
+
+
+class ImpossibleRequestError(Exception):
+    """Kryten was asked to do the impossible"""
+    def __init__(self, operation: str = "Unknown", val: str = "Unknown"):
+        super().__init__(f"Can't set the {operation} to {val}")

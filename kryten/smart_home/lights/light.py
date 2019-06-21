@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict;
 
 
-class SmartLights(ABC):
+class SmartLightController(ABC):
 
     @abstractmethod
     def list_lights(self) -> List[Dict[str, str]]:
@@ -18,6 +18,19 @@ class SmartLights(ABC):
 
     @abstractmethod
     def extinguish(self, light_id: str) -> bool:
+        pass
+
+
+class SmartLightBulb(ABC):
+
+    @property
+    @abstractmethod
+    def brightness(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def power(self) -> bool:
         pass
 
 

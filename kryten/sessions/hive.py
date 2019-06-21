@@ -15,7 +15,7 @@ class HiveSession(Session):
                                         "User-Agent": "Kryten 2X4B 523P"}
     _username: str
     _password: str
-    _session: str
+    _session: Optional[str] = None
     _beekeeper: Final[str] = 'https://beekeeper.hivehome.com/1.0'
 
     def __init__(self, username: str, password: str) -> None:
