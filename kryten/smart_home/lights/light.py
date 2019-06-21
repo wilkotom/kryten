@@ -25,6 +25,16 @@ class SmartLightBulb(ABC):
 
     @property
     @abstractmethod
+    def name(self):
+        pass
+
+    @property
+    @abstractmethod
+    def uuid(self):
+        pass
+
+    @property
+    @abstractmethod
     def brightness(self) -> int:
         pass
 
@@ -33,6 +43,13 @@ class SmartLightBulb(ABC):
     def power(self) -> bool:
         pass
 
+    @abstractmethod
+    def sunrise(self) -> bool:
+        pass
+
+    @abstractmethod
+    def sunset(self) -> bool:
+        pass
 
 
 

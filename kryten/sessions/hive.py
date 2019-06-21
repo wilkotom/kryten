@@ -2,7 +2,7 @@ import requests
 import json
 
 from .session import Session
-from ..exceptions import LoginInvalid, APIOperationNotImplemented
+from ..exceptions import LoginInvalidError, APIOperationNotImplementedError
 from typing import Dict, List, Optional, Union, Callable
 from typing_extensions import Final
 
@@ -34,7 +34,7 @@ class HiveSession(Session):
         if isinstance(session_data, dict) and 'token' in session_data and isinstance(session_data['token'], str):
             self._session = session_data['token']
         else:            
-            raise LoginInvalid("Hive", username)
+            raise LoginInvalidError("Hive", username)
 
     def execute_api_call(self, path: str, payload: Optional[Dict[str, str]] = None, method: str = "GET",
                          headers: Dict[str, str] = {}) -> Union[HiveResponseObject,List[HiveResponseObject]]:
@@ -45,10 +45,10 @@ class HiveSession(Session):
             self._request_headers['authorization'] = self.session_id
 
         if method not in supported_ops:
-            raise APIOperationNotImplemented(operation=method, url=f"{self._beekeeper}{path}")
+            raise APIOperationNotImplementedError(operation=method, url=f"{self._beekeeper}{path}")
         response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers=self._request_headers)
         if response.status_code != 200:
-            raise LoginInvalid(f"{self._beekeeper}{path}")
+            raise LoginInvalidError(f"{self._beekeeper}{path}")
         return response.json()
 
     @property
