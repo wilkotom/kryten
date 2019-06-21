@@ -1,7 +1,7 @@
 import requests
 import json
 
-from .session import Session, HiveResponseObject
+from .session import Session
 from ..exceptions import LoginInvalid, APIOperationNotImplemented
 from typing import Dict, List, Optional, Union, Callable
 from typing_extensions import Final
