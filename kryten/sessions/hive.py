@@ -1,18 +1,22 @@
 import requests
 import json
 
-from .session import Session
+from .session import Session, HiveResponseObject
 from ..exceptions import LoginInvalid, APIOperationNotImplemented
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Callable
+from typing_extensions import Final
 
+HiveResponseObject = Dict[str, Union[str, Dict[str, str]]]
 
 class HiveSession(Session):
-    _request_headers: Dict[str, str] = {"Content-Type": "application/json", "Accept": "application/json",
+
+    _request_headers: Dict[str, str] = {"Content-Type": "application/json", 
+                                        "Accept": "application/json",
                                         "User-Agent": "Kryten 2X4B 523P"}
     _username: str
     _password: str
-    _session: Optional[str] = None
-    _beekeeper: str = 'https://beekeeper.hivehome.com/1.0'
+    _session: str
+    _beekeeper: Final[str] = 'https://beekeeper.hivehome.com/1.0'
 
     def __init__(self, username: str, password: str) -> None:
         self._username = username
@@ -23,18 +27,18 @@ class HiveSession(Session):
         login: Dict[str, str] = {"username": username,
                                  "password": password}
 
-        session_data = self.execute_api_call(path='/global/login', payload=login, method='POST',
+        session_data: Union[HiveResponseObject,List[HiveResponseObject]] = self.execute_api_call(path='/global/login', payload=login, method='POST',
                                              headers={"Content-Type": "application/json", "Accept": "application/json",
                                                       "User-Agent": "Kryten 2X4B 523P"})
 
-        if session_data.status_code != 200:
-            print(session_data.json())
+        if isinstance(session_data, dict) and 'token' in session_data and isinstance(session_data['token'], str):
+            self._session = session_data['token']
+        else:            
             raise LoginInvalid("Hive", username)
-        self._session = session_data.json()['token']
 
     def execute_api_call(self, path: str, payload: Optional[Dict[str, str]] = None, method: str = "GET",
-                         headers: Dict[str, str] = {}) -> List[Dict[str, Union[str, Dict[str, str]]]]:
-        supported_ops = {'GET': requests.get,
+                         headers: Dict[str, str] = {}) -> Union[HiveResponseObject,List[HiveResponseObject]]:
+        supported_ops: Dict[str, Callable[..., requests.Response]] = {'GET': requests.get,
                          'POST': requests.post}
 
         if self.session_id is not None and "authorization" not in self._request_headers:
@@ -44,14 +48,11 @@ class HiveSession(Session):
             raise APIOperationNotImplemented(operation=method, url=f"{self._beekeeper}{path}")
         response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers=self._request_headers)
         if response.status_code != 200:
-            print(response.request.method)
-            print(response.request.headers)
-            print(response.status_code, response.content)
             raise LoginInvalid(f"{self._beekeeper}{path}")
-        return response
+        return response.json()
 
     @property
-    def session_id(self) -> str:
+    def session_id(self) -> Optional[str]:
         return self._session
 
     @session_id.setter
