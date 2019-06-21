@@ -3,7 +3,7 @@ import json
 
 from .session import Session
 from ..exceptions import LoginInvalid, APIOperationNotImplemented
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union
 
 
 class HiveSession(Session):
@@ -32,19 +32,17 @@ class HiveSession(Session):
             raise LoginInvalid("Hive", username)
         self._session = session_data.json()['token']
 
-    def execute_api_call(self, path: str, payload: Dict[str, str] = {}, method: str = "GET",
-                         headers: Dict[str, str] = {}) -> requests.Response:
-        supported_ops = {
-            "POST": requests.post,
-            "GET": requests.get
-        }
+    def execute_api_call(self, path: str, payload: Optional[Dict[str, str]] = None, method: str = "GET",
+                         headers: Dict[str, str] = {}) -> List[Dict[str, Union[str, Dict[str, str]]]]:
+        supported_ops = {'GET': requests.get,
+                         'POST': requests.post}
+
         if self.session_id is not None and "authorization" not in self._request_headers:
             self._request_headers['authorization'] = self.session_id
 
         if method not in supported_ops:
             raise APIOperationNotImplemented(operation=method, url=f"{self._beekeeper}{path}")
-
-        response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers={})
+        response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers=self._request_headers)
         if response.status_code != 200:
             print(response.request.method)
             print(response.request.headers)

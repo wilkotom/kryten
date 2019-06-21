@@ -1,6 +1,7 @@
 from .light import SmartLights
 from ...sessions.hive import HiveSession
 
+from typing import Dict, List
 
 class HiveSmartLights(SmartLights):
 
@@ -18,6 +19,11 @@ class HiveSmartLights(SmartLights):
     def brightness(self, light_id: str) -> None:
         return None
 
-    def list_lights(self):
-        object_list = self._session.execute_api_call(path="/devices", headers={'Content-Length': '0'}).json
-        return object_list
+    def list_lights(self) -> List[Dict[str, str]]:
+        object_list = self._session.execute_api_call(path="/devices").json()
+        output_list: List = []
+        for object in object_list:
+            if object['type'] == 'warmwhitelight':
+                output_list.append({'id': object['id'], 'name': object['state']['name']})
+
+        return output_list
