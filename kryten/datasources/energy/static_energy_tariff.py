@@ -1,4 +1,4 @@
-from ..energy_tariff import EnergyTariff
+from kryten.datasources.energy.energy_tariff import EnergyTariff
 
 class StaticEnergyTariff(EnergyTariff):
     def __init__(self, unit_rate: float, standing_charge: float, unit_type: str = 'kWh', source: str = 'Unknown'):

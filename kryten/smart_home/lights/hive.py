@@ -1,6 +1,6 @@
-from .light import SmartLightController, SmartLightBulb
-from ...sessions.hive import HiveSession
-from ...exceptions import ImpossibleRequestError
+from kryten.smart_home.lights.light import SmartLightController, SmartLightBulb
+from kryten.sessions.hive import HiveSession
+from kryten.exceptions import ImpossibleRequestError
 
 from typing import Dict, List
 
@@ -17,6 +17,10 @@ class HiveWarmWhiteBulb(SmartLightBulb):
         self._session = session
         self._bulb_id = uuid
         self._name = desc
+        for device in session.devices:
+            if device["id"] == uuid:
+                self._brightness = device["state"]["brightness"]
+                self._powered = device["state"]["status"] == "ON"
 
     @property
     def uuid(self) -> str:
@@ -36,7 +40,6 @@ class HiveWarmWhiteBulb(SmartLightBulb):
             raise ImpossibleRequestError(operation="Bulb Brightness", val=str(val))
         self._session.execute_api_call(path="/nodes/warmwhitelight/" + self._bulb_id, method="POST",
                                        payload={"brightness": val})
-        self._brightness = val
         return val
 
     @property
@@ -44,8 +47,10 @@ class HiveWarmWhiteBulb(SmartLightBulb):
         return self._powered
 
     @power.setter
-    def power(self, val: bool):
-        raise ImpossibleRequestError(operation="Bulb Power", val="on" if val else "off")
+    def power(self, power_status: bool):
+        self._session.execute_api_call(path="/nodes/warmwhitelight/" + self._bulb_id, method="POST",
+                                       payload={"status": "ON" if power_status else "OFF"})
+        self._powered = power_status
 
     def sunrise(self) -> bool:
         pass
@@ -62,17 +67,19 @@ class HiveSmartLightController(SmartLightController):
         self._session = session
         self._generate_light_list()
 
-    def illuminate(self) -> bool:
-        return False
+    def illuminate(self, light_id: str) -> None:
+        self._bulbs[light_id].power = True
 
-    def extinguish(self, light_id: str) -> bool:
-        return False
+    def extinguish(self, light_id: str) -> None:
+        self._bulbs[light_id].power = False
 
     def brightness(self, light_id: str, brightness: int = 0) -> None:
         if not 0 < brightness <= 100:
             raise ImpossibleRequestError(operation="Bulb Brightness", val=str(brightness))
-        self._session.execute_api_call(path="/nodes/warmwhitelight/" + light_id, method="POST",
-                                       payload={"brightness": brightness})
+        if light_id in self._bulbs.keys():
+            self._bulbs[light_id].brightness = brightness
+        else:
+            raise ImpossibleRequestError(operation=f"Bulb Brightness for unknown bulb {light_id}", val=brightness)
 
     def _generate_light_list(self) -> None:
         object_list = self._session.execute_api_call(path="/devices")

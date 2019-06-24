@@ -1,9 +1,9 @@
-import requests
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union, Optional, TypeVar, Generic
 
 ResponseObject = TypeVar('ResponseObject')
 Response = Union[ResponseObject,List[ResponseObject]]
+
 
 class Session(ABC):
     @property

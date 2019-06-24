@@ -13,11 +13,11 @@ class SmartLightController(ABC):
         pass
 
     @abstractmethod
-    def illuminate(self, light_id: str) -> bool:
+    def illuminate(self, light_id: str) -> None:
         pass
 
     @abstractmethod
-    def extinguish(self, light_id: str) -> bool:
+    def extinguish(self, light_id: str) -> None:
         pass
 
 
@@ -44,11 +44,11 @@ class SmartLightBulb(ABC):
         pass
 
     @abstractmethod
-    def sunrise(self) -> bool:
+    def sunrise(self) -> None:
         pass
 
     @abstractmethod
-    def sunset(self) -> bool:
+    def sunset(self) -> None:
         pass
 
 
