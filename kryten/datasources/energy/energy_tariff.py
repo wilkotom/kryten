@@ -1,5 +1,5 @@
-from ...exceptions import KrytenOperationNotImplemented
+from ...exceptions import OperationNotImplementedError
 
 class EnergyTariff:
     def __init__(self):
-        raise KrytenOperationNotImplemented
+        raise OperationNotImplementedError

@@ -1,5 +1,5 @@
-from kryten.smart_home.lights.light import SmartLightController, SmartLightBulb
-from kryten.sessions.hive import HiveSession
+from ...smart_home.lights.light import SmartLightController, SmartLightBulb
+from ...sessions.hive import HiveSession
 from kryten.exceptions import ImpossibleRequestError
 
 from typing import Dict, List
@@ -9,7 +9,7 @@ class HiveWarmWhiteBulb(SmartLightBulb):
 
     _brightness: int
     _powered: bool
-    _session: str
+    _session: HiveSession
     _bulb_id: str
     _name: str
 
@@ -18,8 +18,8 @@ class HiveWarmWhiteBulb(SmartLightBulb):
         self._bulb_id = uuid
         self._name = desc
         for device in session.devices:
-            if device["id"] == uuid:
-                self._brightness = device["state"]["brightness"]
+            if device["id"] == uuid and isinstance(device, dict):
+                self._brightness = int(device["state"]["brightness"])
                 self._powered = device["state"]["status"] == "ON"
 
     @property
@@ -83,9 +83,9 @@ class HiveSmartLightController(SmartLightController):
 
     def _generate_light_list(self) -> None:
         object_list = self._session.execute_api_call(path="/devices")
-        for object in object_list:
-            if object['type'] == 'warmwhitelight':
-                self._bulbs[object['id']] = HiveWarmWhiteBulb(self._session, object['id'], object['state']['name'])
+        for object_ in object_list:
+            if object_['type'] == 'warmwhitelight':
+                self._bulbs[object_['id']] = HiveWarmWhiteBulb(self._session, object_['id'], object_['state']['name'])
 
     def list_lights(self) -> List[Dict[str, str]]:
         return [{'id': x[0], 'name': x[1].name} for x in self._bulbs.items()]

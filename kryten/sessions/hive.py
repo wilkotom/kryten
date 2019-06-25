@@ -1,15 +1,19 @@
 import requests
 
 from kryten.sessions.session import Session
-from kryten.exceptions import LoginInvalidError, APIOperationNotImplementedError
+from kryten.exceptions import LoginInvalidError, APIOperationNotImplementedError, UnexpectedResultError
 from typing import Dict, List, Optional, Union, Callable, Any
 from typing_extensions import Final
 
+
+# TODO: sort out this mess - parse the response object and construct proper objects rather than using compond primitives
+JsonResponseObject = Union[Dict[str,Any], Union[List[int], List[float], List[str], List[Dict[str, Any]]]]
 HiveResponseObject = Dict[str, Union[str, Dict[str, str]]]
 HiveSchedule = Dict[str, List[Dict[str, Union[int, str, Dict[int, str]]]]]
 HiveDeviceProperties = Dict[str, Union[str, int, List[str], bool]]
 HiveProductList = List[Dict[str, Union[str, int, HiveDeviceProperties, HiveSchedule]]]
-HiveState = Dict[str, Union[str, Dict[str, Union[str, bool, HiveProductList]]]]
+# HiveState = Dict[str, Union[str, Dict[str, Union[str, bool, HiveProductList]]]]
+HiveState = JsonResponseObject
 
 
 class HiveSession(Session):
@@ -30,10 +34,10 @@ class HiveSession(Session):
         self.__create_session(self._username, self._password)
 
     def __create_session(self, username: str, password: str) -> None:
-        login: Dict[str, str] = {"username": username,
+        login: Optional[Dict[str, Union[bool, str, None]]] = {"username": username,
                                  "password": password}
 
-        session_data: Union[HiveResponseObject,List[HiveResponseObject]] = self.execute_api_call(path='/global/login', payload=login, method='POST',
+        session_data: JsonResponseObject = self.execute_api_call(path='/global/login', payload=login, method='POST',
                                              headers={"Content-Type": "application/json", "Accept": "application/json",
                                                       "User-Agent": "Kryten 2X4B 523P"})
 
@@ -42,17 +46,21 @@ class HiveSession(Session):
                 self._session = session_data["token"]
             except KeyError:
                 print(session_data.keys())
+        elif not isinstance(session_data, dict):
+            raise UnexpectedResultError(operation="login", result=str(session_data))
         else:            
             raise LoginInvalidError("Hive", username)
 
         hive_admin_session = {"token": self._session, "devices": True, "products": True, "actions": True,
                               "homes": False}
-        self._hive_state: HiveState = self.execute_api_call(path='/auth/admin-login', payload=hive_admin_session, method='POST',
-                headers={"Content-Type": "application/json", "Accept": "application/json",
-                   "User-Agent": "Kryten 2X4B 523P"})
+        self._hive_state = self.execute_api_call(path='/auth/admin-login', payload=hive_admin_session,
+                                                            method='POST',
+                                                            headers={"Content-Type": "application/json",
+                                                                     "Accept": "application/json",
+                                                                     "User-Agent": "Kryten 2X4B 523P"})
 
-    def execute_api_call(self, path: str, payload: Optional[Dict[str, str]] = None, method: str = "GET",
-                         headers: Dict[str, str] = {}) -> Union[HiveResponseObject,List[HiveResponseObject]]:
+    def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, None]]] = None, method: str = "GET",
+                         headers: Dict[str, str] = {}) -> JsonResponseObject:
         supported_ops: Dict[str, Callable[..., requests.Response]] = {'GET': requests.get,
                          'POST': requests.post}
 
@@ -62,9 +70,10 @@ class HiveSession(Session):
         if method not in supported_ops:
             raise APIOperationNotImplementedError(operation=method, url=f"{self._beekeeper}{path}")
         response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers=self._request_headers)
+        parsed_response: Union[Dict[str, Any], List[Dict[str, Any]]] = response.json()
         if response.status_code != 200:
             raise LoginInvalidError(f"{self._beekeeper}{path}")
-        return response.json()
+        return parsed_response
 
     @property
     def session_id(self) -> Optional[str]:
@@ -76,9 +85,12 @@ class HiveSession(Session):
 
     @property
     def devices(self) -> List[HiveDeviceProperties]:
-        return self._hive_state['products']
+        if isinstance(self._hive_state, dict):
+            return self._hive_state['products']
+        else:
+            raise AttributeError("Hive State is not a singleton")
 
     @devices.setter
-    def devices(self) -> None:
+    def devices(self, props: List[HiveDeviceProperties]) -> None:
         raise AttributeError("Device List cannot be explicitly set")
 

@@ -18,3 +18,8 @@ class ImpossibleRequestError(Exception):
     """Kryten was asked to do the impossible"""
     def __init__(self, operation: str = "Unknown", val: str = "Unknown"):
         super().__init__(f"Can't set the {operation} to {val}")
+
+class UnexpectedResultError(Exception):
+    """Kryten got something unexpected back from a remote API"""
+    def __init__(self, operation: str = "Unknown", result: str = "Unknown"):
+        super().__init__(f"Got an unexpected result from {operation} - result was {result}")
