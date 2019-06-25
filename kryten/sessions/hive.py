@@ -48,7 +48,7 @@ class HiveSession(Session):
                 print(session_data.keys())
         elif not isinstance(session_data, dict):
             raise UnexpectedResultError(operation="login", result=str(session_data))
-        else:            
+        else:
             raise LoginInvalidError("Hive", username)
 
         hive_admin_session = {"token": self._session, "devices": True, "products": True, "actions": True,
