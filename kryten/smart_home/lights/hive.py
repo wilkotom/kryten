@@ -1,8 +1,8 @@
 from ...smart_home.lights.light import SmartLightController, SmartLightBulb
-from ...sessions.hive import HiveSession
+from ...sessions.hive import HiveSession, HiveDeviceProperties, HiveSchedule
 from kryten.exceptions import ImpossibleRequestError
 
-from typing import Dict, List
+from typing import Dict, List, Union
 
 
 class HiveWarmWhiteBulb(SmartLightBulb):
@@ -18,8 +18,8 @@ class HiveWarmWhiteBulb(SmartLightBulb):
         self._bulb_id = uuid
         self._name = desc
         for device in session.devices:
-            if device["id"] == uuid and isinstance(device, dict):
-                self._brightness = int(device["state"]["brightness"])
+            if device["id"] == uuid and isinstance(device, dict) and isinstance(device["state"], dict):
+                self._brightness = device["state"]["brightness"]
                 self._powered = device["state"]["status"] == "ON"
 
     @property
@@ -52,10 +52,10 @@ class HiveWarmWhiteBulb(SmartLightBulb):
                                        payload={"status": "ON" if power_status else "OFF"})
         self._powered = power_status
 
-    def sunrise(self) -> bool:
+    def sunrise(self) -> None:
         pass
 
-    def sunset(self) -> bool:
+    def sunset(self) -> None:
         pass
 
 
@@ -79,13 +79,14 @@ class HiveSmartLightController(SmartLightController):
         if light_id in self._bulbs.keys():
             self._bulbs[light_id].brightness = brightness
         else:
-            raise ImpossibleRequestError(operation=f"Bulb Brightness for unknown bulb {light_id}", val=brightness)
+            raise ImpossibleRequestError(operation=f"Bulb Brightness for unknown bulb {light_id}", val=f"{brightness}")
 
     def _generate_light_list(self) -> None:
         object_list = self._session.execute_api_call(path="/devices")
-        for object_ in object_list:
-            if object_['type'] == 'warmwhitelight':
-                self._bulbs[object_['id']] = HiveWarmWhiteBulb(self._session, object_['id'], object_['state']['name'])
+        bulb: Dict[str, Union[str, int, HiveDeviceProperties, HiveSchedule]]
+        for bulb in filter(lambda x: "type" in x and x["type"] == "warmwhitelight", object_list):
+            self._bulbs[bulb["id"]] = \
+                HiveWarmWhiteBulb(self._session, str(bulb["id"]), str(bulb["state"]["name"]))
 
     def list_lights(self) -> List[Dict[str, str]]:
-        return [{'id': x[0], 'name': x[1].name} for x in self._bulbs.items()]
+        return [{"id": x[0], "name": x[1].name} for x in self._bulbs.items()]

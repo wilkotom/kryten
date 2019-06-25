@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union, Optional, TypeVar, Generic
 
-ResponseObject = TypeVar('ResponseObject')
+ResponseObject = TypeVar("ResponseObject")
 Response = Union[ResponseObject, List[ResponseObject]]
 
 
@@ -12,6 +12,6 @@ class Session(ABC):
         pass
 
     @abstractmethod
-    def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, None]]],
+    def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, int]]],
                          method: str) -> Response:
         pass
