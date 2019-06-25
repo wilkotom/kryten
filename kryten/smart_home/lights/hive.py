@@ -83,7 +83,6 @@ class HiveSmartLightController(SmartLightController):
 
     def _generate_light_list(self) -> None:
         object_list = self._session.execute_api_call(path="/devices")
-        bulb: Dict[str, Union[str, int, HiveDeviceProperties, HiveSchedule]]
         for bulb in filter(lambda x: "type" in x and x["type"] == "warmwhitelight", object_list):
             self._bulbs[bulb["id"]] = \
                 HiveWarmWhiteBulb(self._session, str(bulb["id"]), str(bulb["state"]["name"]))
