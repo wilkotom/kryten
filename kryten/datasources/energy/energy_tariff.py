@@ -1,5 +1,8 @@
-from ...exceptions import OperationNotImplementedError
+from abc import ABC, abstractmethod
 
-class EnergyTariff:
-    def __init__(self):
-        raise OperationNotImplementedError
+
+class EnergyTariff(ABC):
+    @property
+    @abstractmethod
+    def current_energy_cost(self) -> float:
+        pass

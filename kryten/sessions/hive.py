@@ -1,4 +1,6 @@
 import requests
+from time import sleep
+from threading import Thread
 
 from kryten.sessions.session import Session
 from kryten.exceptions import LoginInvalidError, APIOperationNotImplementedError, UnexpectedResultError
@@ -17,29 +19,32 @@ HiveState = JsonResponseObject
 
 
 class HiveSession(Session):
+    """Creates a session against the Centrica Hive Home Beekeeper API, providing methods that show available devices and
+    performs requests against the API.
+    """
     _request_headers: Dict[str, str] = {"Content-Type": "application/json",
                                         "Accept": "application/json",
                                         "User-Agent": "Kryten 2X4B 523P"}
     _username: str
     _password: str
+    _debug: bool
     _session: Optional[str] = None
     _products: HiveProductList
     _beekeeper: Final[str] = "https://beekeeper-uk.hivehome.com/1.0"
     _hive_state: HiveState
+    _stopping: int = False
 
-    def __init__(self, username: str, password: str) -> None:
+    def __init__(self, username: str, password: str, debug: bool = False) -> None:
         self._username = username
         self._password = password
+        self._debug = debug
         self.__create_session(self._username, self._password)
 
     def __create_session(self, username: str, password: str) -> None:
         login: HiveRequestPayload = {"username": username,
                                      "password": password}
 
-        session_data: JsonResponseObject = self.execute_api_call(path="/global/login", payload=login, method="POST",
-                                                                 headers={"Content-Type": "application/json",
-                                                                          "Accept": "application/json",
-                                                                          "User-Agent": "Kryten 2X4B 523P"})
+        session_data: JsonResponseObject = self.execute_api_call(path="/global/login", payload=login, method="POST")
 
         if isinstance(session_data, dict) and "token" in session_data and isinstance(session_data["token"], str):
             try:
@@ -50,19 +55,14 @@ class HiveSession(Session):
             raise UnexpectedResultError(operation="login", result=str(session_data))
         else:
             raise LoginInvalidError("Hive", username)
+        self._refresh_hive_state()
 
-        hive_admin_session: HiveRequestPayload = {"token": session_data["token"], "devices": True, "products": True,
-                                                  "actions": True,
-                                                  "homes": False}
-        self._hive_state = self.execute_api_call(path="/auth/admin-login", payload=hive_admin_session,
-                                                 method="POST",
-                                                 headers={"Content-Type": "application/json",
-                                                          "Accept": "application/json",
-                                                          "User-Agent": "Kryten 2X4B 523P"})
+        self._background_refresh = Thread(target=self._periodic_state_refresh, args=(60,))
+        self._background_refresh.start()
 
     def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, int]]] = None,
-                         method: str = "GET",
-                         headers: Dict[str, str] = {}) -> JsonResponseObject:
+                         method: str = "GET") -> JsonResponseObject:
+        """Executes the supplied REST call against the open Beekeeper session"""
         supported_ops: Dict[str, Callable[..., requests.Response]] = {"GET": requests.get,
                                                                       "POST": requests.post}
 
@@ -71,14 +71,27 @@ class HiveSession(Session):
 
         if method not in supported_ops:
             raise APIOperationNotImplementedError(operation=method, url=f"{self._beekeeper}{path}")
+
         response = supported_ops[method](f"{self._beekeeper}{path}", json=payload, headers=self._request_headers)
+        if self._debug:
+            print(response.content)
+        if response.status_code == 403 and \
+                self._session is not None:
+            try:
+                self.__create_session(self._username, self._password)
+                response = supported_ops[method](f"{self._beekeeper}{path}", json=payload,
+                                                 headers=self._request_headers)
+                if self._debug:
+                    print(response.content)
+            except LoginInvalidError as e:
+                raise e
+
         parsed_response: Union[Dict[str, Any], List[Dict[str, Any]]] = response.json()
-        if response.status_code != 200:
-            raise LoginInvalidError(f"{self._beekeeper}{path}")
         return parsed_response
 
     @property
     def session_id(self) -> Optional[str]:
+        """Contains the session ID of the current Beekeeper session"""
         return self._session
 
     @session_id.setter
@@ -87,6 +100,7 @@ class HiveSession(Session):
 
     @property
     def devices(self) -> List[HiveDeviceProperties]:
+        """Contains a list of devices that Beekeeper has supplied as being associated with the account"""
         if isinstance(self._hive_state, dict):
             return self._hive_state["products"]
         else:
@@ -95,3 +109,16 @@ class HiveSession(Session):
     @devices.setter
     def devices(self, props: List[HiveDeviceProperties]) -> None:
         raise AttributeError("Device List cannot be explicitly set")
+
+    def _refresh_hive_state(self) -> None:
+
+        hive_admin_session: HiveRequestPayload = {"token": str(self._session), "devices": True, "products": True,
+                                                  "actions": True,
+                                                  "homes": False}
+
+        self._hive_state = self.execute_api_call(path="/auth/admin-login", payload=hive_admin_session, method="POST")
+
+    def _periodic_state_refresh(self, duration: int) -> None:
+        while not self._stopping:
+            self._refresh_hive_state()
+            sleep(duration)
