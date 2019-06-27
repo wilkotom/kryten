@@ -2,7 +2,7 @@ from kryten.smart_home.lights.light import SmartLightController, SmartLightBulb
 from kryten.sessions.hive import HiveSession
 from kryten.exceptions import ImpossibleRequestError, OperationNotImplementedError, DeviceIsOfflineError
 from abc import abstractmethod
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 from threading import Thread
 from time import sleep
 
@@ -15,6 +15,7 @@ class HiveLightBulb(SmartLightBulb):
     _bulb_id: str
     _name: str
     _action_thread: Thread
+    _action_interrupt_semaphore: bool = False
 
     @property
     def uuid(self) -> str:
@@ -114,6 +115,7 @@ class HiveWarmWhiteBulb(HiveLightBulb):
         self._session = session
         self._bulb_id = uuid
         self._name = desc
+        self._action_thread = Thread()
         for device in session.devices:
             if device["id"] == uuid and isinstance(device, dict) and isinstance(device["state"], dict):
                 self._brightness = device["state"]["brightness"]
@@ -128,15 +130,53 @@ class HiveWarmWhiteBulb(HiveLightBulb):
     def brightness(self, val: int):
         if not 0 < val <= 100:
             raise ImpossibleRequestError(operation="Bulb Brightness", val=str(val))
+
         self._session.execute_api_call(path="/nodes/warmwhitelight/" + self._bulb_id, method="POST",
                                        payload={"brightness": val})
         self._brightness = val
 
-    def sunrise(self, period: int) -> None:
-        raise OperationNotImplementedError
+    def sunrise(self, period: int = 0) -> None:
+        if self.brightness != 1:
+            self.brightness = 1
+        if self.power is False:
+            self.power = True
+        while self._action_thread.is_alive():
+            if not self._action_interrupt_semaphore:
+                self._action_interrupt_semaphore = True
+            sleep(1)
+        self._action_thread = Thread(target=self._fade, args=(1, 100, period))
+        self._action_thread.start()
 
-    def sunset(self, period: int) -> None:
-        raise OperationNotImplementedError
+    def sunset(self, period: int = 0) -> None:
+
+        while self._action_thread.is_alive():
+            if not self._action_interrupt_semaphore:
+                self._action_interrupt_semaphore = True
+            sleep(1)
+
+        self._action_thread = Thread(target=self._fade, args=(self.brightness, 0, period))
+        self._action_thread.start()
+
+    def _fade(self, start: int, end: int, period: int, step: int = 1) -> None:
+        power_down = False
+        if end == 0:
+            power_down = True
+            end = 1
+        if start == end:
+            return
+        if start > end:
+            step = -step
+        snooze = period / ((start - end) * step)
+        for i in range(start, end + step, step):
+            if self._action_interrupt_semaphore:
+                self._action_interrupt_semaphore = False
+                return
+            self.brightness = i
+            sleep(snooze)
+        if power_down:
+            self.power = False
+
+
 
     @property
     def power(self) -> bool:

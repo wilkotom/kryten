@@ -57,7 +57,7 @@ class HiveSession(Session):
             raise LoginInvalidError("Hive", username)
         self._refresh_hive_state()
 
-        self._background_refresh = Thread(target=self._periodic_state_refresh, args=(60,))
+        self._background_refresh = Thread(target=self._periodic_state_refresh, args=(60,), daemon=True)
         self._background_refresh.start()
 
     def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, int]]] = None,
