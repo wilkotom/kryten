@@ -1,8 +1,8 @@
 from kryten.smart_home.lights.light import SmartLightController, SmartLightBulb
 from kryten.sessions.hive import HiveSession
-from kryten.exceptions import ImpossibleRequestError, OperationNotImplementedError, DeviceIsOfflineError
+from kryten.exceptions import ImpossibleRequestError, OperationNotImplementedError
 from abc import abstractmethod
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union
 from threading import Thread
 from time import sleep
 
@@ -136,14 +136,15 @@ class HiveWarmWhiteBulb(HiveLightBulb):
         self._brightness = val
 
     def sunrise(self, period: int = 0) -> None:
-        if self.brightness != 1:
-            self.brightness = 1
-        if self.power is False:
-            self.power = True
         while self._action_thread.is_alive():
             if not self._action_interrupt_semaphore:
                 self._action_interrupt_semaphore = True
             sleep(1)
+        if self.brightness != 1:
+            self.brightness = 1
+        if self.power is False:
+            self.power = True
+
         self._action_thread = Thread(target=self._fade, args=(1, 100, period))
         self._action_thread.start()
 
@@ -176,8 +177,6 @@ class HiveWarmWhiteBulb(HiveLightBulb):
         if power_down:
             self.power = False
 
-
-
     @property
     def power(self) -> bool:
         return self._powered
@@ -188,7 +187,7 @@ class HiveWarmWhiteBulb(HiveLightBulb):
                                        payload={"status": "ON" if power_status else "OFF"})
         self._powered = power_status
 
-    def _update_attributes_from_hive(self, brightness: int, powered: bool, presence: bool):
+    def _update_attributes_from_hive(self, brightness: int, powered: bool, presence: bool) -> None:
         self._brightness = brightness
         self._powered = powered
         self._presence = presence

@@ -8,7 +8,7 @@ setup(name='kryten',
       author='Tom Wilkinson',
       author_email='twilkinson@wilkinson-rowe.name',
       url='https://github.com/wilkotom/kryten',
-      packages=['kryten'],
+      packages=['kryten', 'kryten.sessions', 'kryten.smart_home.lights'],
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Developers',

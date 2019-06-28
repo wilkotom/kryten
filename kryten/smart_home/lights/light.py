@@ -45,12 +45,12 @@ class SmartLightBulb(ABC):
 
     @abstractmethod
     def sunrise(self, period: int) -> None:
-        """Gradually increases the bulb's brightness from 1% to 100% over the specified period """
+        """Gradually increases the bulb's brightness from off to 100% over the specified period """
         pass
 
     @abstractmethod
     def sunset(self, period: int) -> None:
-        """Gradually decreases the bulb's brightness from 100% to 1% over the specified period """
+        """Gradually decreases the bulb's brightness from 100% to off over the specified period """
         pass
 
 
