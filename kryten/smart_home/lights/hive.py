@@ -1,5 +1,5 @@
-from kryten.smart_home.lights.light import SmartLightController, SmartLightBulb
-from kryten.sessions.hive import HiveSession
+from .light import SmartLightController, SmartLightBulb
+from ..sessions.hive import HiveSession
 from kryten.exceptions import ImpossibleRequestError, OperationNotImplementedError
 from abc import abstractmethod
 from typing import Dict, List, Union
@@ -160,14 +160,15 @@ class HiveWarmWhiteBulb(HiveLightBulb):
 
     def _fade(self, start: int, end: int, period: int, step: int = 1) -> None:
         power_down = False
+        if start == end:
+            return
         if end == 0:
             power_down = True
             end = 1
-        if start == end:
-            return
+        snooze = period / ((start - end) * step)
         if start > end:
             step = -step
-        snooze = period / ((start - end) * step)
+
         for i in range(start, end + step, step):
             if self._action_interrupt_semaphore:
                 self._action_interrupt_semaphore = False

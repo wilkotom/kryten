@@ -2,12 +2,13 @@ import requests
 from time import sleep
 from threading import Thread
 
-from kryten.sessions.session import Session
+from .session import Session
 from kryten.exceptions import LoginInvalidError, APIOperationNotImplementedError, UnexpectedResultError
 from typing import Dict, List, Optional, Union, Callable, Any
 from typing_extensions import Final
 
-# TODO: sort out this mess - parse the response object and construct proper objects rather than using compond primitives
+#  TODO: sort out this mess - parse the response object and construct
+#  proper objects rather than using compound primitives
 JsonResponseObject = Union[Dict[str, Any], Union[List[int], List[float], List[str], List[Dict[str, Any]]]]
 HiveResponseObject = Dict[str, Union[str, Dict[str, str]]]
 HiveRequestPayload = Optional[Dict[str, Union[bool, str, int]]]
@@ -38,11 +39,11 @@ class HiveSession(Session):
         self._username = username
         self._password = password
         self._debug = debug
-        self.__create_session(self._username, self._password)
+        self.__create_session()
 
-    def __create_session(self, username: str, password: str) -> None:
-        login: HiveRequestPayload = {"username": username,
-                                     "password": password}
+    def __create_session(self) -> None:
+        login: HiveRequestPayload = {"username": self._username,
+                                     "password": self._password}
 
         session_data: JsonResponseObject = self.execute_api_call(path="/global/login", payload=login, method="POST")
 
@@ -54,7 +55,7 @@ class HiveSession(Session):
         elif not isinstance(session_data, dict):
             raise UnexpectedResultError(operation="login", result=str(session_data))
         else:
-            raise LoginInvalidError("Hive", username)
+            raise LoginInvalidError("Hive", self._username)
         self._refresh_hive_state()
 
         self._background_refresh = Thread(target=self._periodic_state_refresh, args=(60,), daemon=True)
@@ -78,7 +79,7 @@ class HiveSession(Session):
         if response.status_code == 403 and \
                 self._session is not None:
             try:
-                self.__create_session(self._username, self._password)
+                self.__create_session()
                 response = supported_ops[method](f"{self._beekeeper}{path}", json=payload,
                                                  headers=self._request_headers)
                 if self._debug:
