@@ -45,14 +45,12 @@ class TadoSession(Session):
         if bearer_details.status_code != 200:
             raise LoginInvalidError("Tado", self._username)
         bearer_json = bearer_details.json()
-        print(json.dumps(bearer_json, indent=2))
         self._token_expiry = bearer_json["expires_in"] + time()
         self._bearer_token = bearer_json["access_token"]
         self._refresh_token = bearer_json["refresh_token"]
         self._maintain_session = Thread(target=self.__renew_token, args=(), daemon=True)
         self._maintain_session.start()
         home_details = self.execute_api_call('v1/me')
-        print(json.dumps(home_details))
         self._tado_home_id = str(home_details["homeId"])
 
     @property
