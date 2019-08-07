@@ -1,0 +1,1 @@
+from .tado import TadoThermostatController

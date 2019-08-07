@@ -1,7 +1,7 @@
 import kryten.smart_home.sessions.hive
 import kryten.smart_home.lights.hive
 from time import sleep;
-h = kryten.smart_home.sessions.HiveSession('tom.hive@dentrassi.net', 'BK3jeecBTwc7u9QSxL610vuE8xVv1d', debug=True)
+h = kryten.smart_home.sessions.HiveSession('tom.hive@dentrassi.net', 'sekrit', debug=True)
 ls = kryten.smart_home.lights.HiveSmartLightController(h)
 x = 1
 while x > 0:

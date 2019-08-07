@@ -57,6 +57,10 @@ class TadoSession(Session):
     def session_id(self) -> Optional[str]:
         return self._bearer_token
 
+    @property
+    def home_id(self) -> Optional[str]:
+        return self._tado_home_id
+
     def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, int]]] = None,
                          method: str = "GET") -> TadoResponse:
 

@@ -21,6 +21,6 @@ class StatsDMetricSender(KrytenMetricSender):
         elif value is not None:
             self._statsd_client.gauge(metric_name, value)
         else:
-            raise ImpossibleRequestError(f"StatsD gauge {metric_name}", "None")
+            raise ImpossibleRequestError(f"StatsD {'counter' if counter else 'gauge'} {metric_name}", "None")
 
 
