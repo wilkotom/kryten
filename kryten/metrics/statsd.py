@@ -6,7 +6,7 @@ import statsd
 
 class StatsDMetricSender(KrytenMetricSender):
 
-    _statsd_client: statsd.StatsClient
+    _statsd_client: Union[statsd.StatsClient, statsd.TCPStatsClient]
 
     def __init__(self, hostname: str, port: int = 8125, udp: bool = True, prefix: str = "kryten.data") -> None:
         if udp:
