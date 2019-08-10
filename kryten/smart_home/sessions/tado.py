@@ -4,11 +4,11 @@ import json
 from threading import Thread
 
 from .session import Session
-from kryten.exceptions import LoginInvalidError, APIOperationNotImplementedError, UnexpectedResultError
+from ...exceptions import LoginInvalidError, APIOperationNotImplementedError, UnexpectedResultError
 from typing import Dict, List, Optional, Union, Callable, Any
 from typing_extensions import Final
 
-TadoResponse = Dict[str, Any]
+TadoResponse = Union[List[Dict[str, Any]], Dict[str, Any]]
 
 
 class TadoSession(Session):
@@ -51,7 +51,10 @@ class TadoSession(Session):
         self._maintain_session = Thread(target=self.__renew_token, args=(), daemon=True)
         self._maintain_session.start()
         home_details = self.execute_api_call('v1/me')
-        self._tado_home_id = str(home_details["homeId"])
+        if isinstance(home_details, list):
+            raise UnexpectedResultError("Multiple Homes returned")
+        else:
+            self._tado_home_id = str(home_details["homeId"])
 
     @property
     def session_id(self) -> Optional[str]:
@@ -82,7 +85,7 @@ class TadoSession(Session):
             if self._token_expiry < time() + 60:
                 renewal = requests.post(self._oath_url, post_data)
                 if renewal.status_code != 200:
-                    raise LoginInvalidError("Tado", "OAuth Bearer Token renewal")
+                    self.__create_session()
                 else:
                     self._token_expiry = renewal.json()["expires_in"] + time()
             sleep(10)
