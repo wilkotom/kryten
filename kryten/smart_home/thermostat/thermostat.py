@@ -1,14 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
-
-
-class ThermostatController(ABC):
-    """Provides a controller object for access to all the thermostats
-    that belong to a particular home automation session"""
-
-    @abstractmethod
-    def list_zones(self) -> List[Dict[str, str]]:
-        pass
+from typing import List, Dict, Union
 
 
 class ThermostatZone(ABC):
@@ -18,3 +9,25 @@ class ThermostatZone(ABC):
     @abstractmethod
     def current_temperature(self) -> float:
         pass
+
+    @property
+    @abstractmethod
+    def humidity(self) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def target_temperature(self) -> float:
+        pass
+
+
+class ThermostatController(ABC):
+    """Provides a controller object for access to all the thermostats
+    that belong to a particular home automation session"""
+
+    @property
+    @abstractmethod
+    def zones(self) -> List[Dict[Union[int, str], str]]:
+        pass
+
+

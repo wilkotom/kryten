@@ -1,6 +1,7 @@
 import requests
 from time import sleep, time
 import json
+import logging
 from threading import Thread
 
 from .session import Session
@@ -21,6 +22,7 @@ class TadoSession(Session):
     _bearer_token: Optional[str] = None
     _refresh_token: Optional[str] = None
     _token_expiry: int = 0
+    __logger: logging.Logger
 
     _tado_home_id: str
     _tado: Final[str] = 'https://my.tado.com/api/'
@@ -28,11 +30,13 @@ class TadoSession(Session):
     _oath_client_secret: Final[str] = 'wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc'
     _maintain_session = Thread()
 
-    def __init__(self, username: str, password: str, debug: bool = False) -> None:
+    def __init__(self, username: str, password: str, debug: bool = False, log_level: int = 25) -> None:
         self._username = username
         self._password = password
         self._debug = debug
         self.__create_session()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.setLevel(log_level)
 
     def __create_session(self) -> None:
         post_data = {'client_id': 'tado-web-app',
