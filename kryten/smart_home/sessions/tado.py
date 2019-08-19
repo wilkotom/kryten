@@ -30,13 +30,13 @@ class TadoSession(Session):
     _oath_client_secret: Final[str] = 'wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc'
     _maintain_session = Thread()
 
-    def __init__(self, username: str, password: str, debug: bool = False, log_level: int = 25) -> None:
+    def __init__(self, username: str, password: str, debug: bool = False, log_level: int = logging.ERROR) -> None:
         self._username = username
         self._password = password
         self._debug = debug
-        self.__create_session()
         self.__logger = logging.getLogger(__name__)
         self.__logger.setLevel(log_level)
+        self.__create_session()
 
     def __create_session(self) -> None:
         post_data = {'client_id': 'tado-web-app',
@@ -70,11 +70,12 @@ class TadoSession(Session):
 
     def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, int]]] = None,
                          method: str = "GET") -> TadoResponse:
-
+        self.__logger.debug(f"Sending {method} request for {path}")
         supported_ops: Dict[str, Callable[..., requests.Response]] = {"GET": requests.get,
                                                                       "POST": requests.post}
         response = supported_ops[method](f"{self._tado}{path}", json=payload,
                                          headers={"Authorization": f"Bearer {self._bearer_token}"})
+        self.__logger.debug(f"Response was {response.status_code}")
 
         parsed_response: Dict[str, Any] = response.json()
         return parsed_response
@@ -88,8 +89,13 @@ class TadoSession(Session):
         while True and self._refresh_token is not None:
             if self._token_expiry < time() + 60:
                 renewal = requests.post(self._oath_url, post_data)
+                self.__logger.debug(renewal.json())
                 if renewal.status_code != 200:
                     self.__create_session()
+                    break
                 else:
-                    self._token_expiry = renewal.json()["expires_in"] + time()
+                    new_details = renewal.json()
+                    self._bearer_token = new_details['access_token']
+                    self._refresh_token = new_details['refresh_token']
+                    self._token_expiry = new_details["expires_in"] + time()
             sleep(10)

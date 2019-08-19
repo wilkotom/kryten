@@ -7,6 +7,20 @@ from time import time
 import json
 
 
+def weather_updater(func):
+    def update_weather(obj):
+        now = time()
+        if obj._weather_timestamp + obj._weather_refresh < now:
+            weather_details = obj._tado_session.execute_api_call(
+                f'v2/homes/{obj._tado_session.home_id}/weather')
+            obj._solar_intensity = weather_details['solarIntensity']['percentage']
+            obj._outside_temperature = weather_details['outsideTemperature']['celsius']
+            obj._weather_timestamp = now
+        return func(obj)
+
+    return update_weather
+
+
 class TadoThermostatZone(ThermostatZone):
 
     _session: TadoSession
@@ -60,9 +74,14 @@ class TadoThermostatZone(ThermostatZone):
 class TadoThermostatController(ThermostatController):
     _tado_session: TadoSession
     _zones: Dict[Union[int, str], TadoThermostatZone] = {}
+    _weather_refresh: Final[int]
+    _weather_timestamp: float = 0.0
+    _solar_intensity: float
+    _outside_temperature: float
 
-    def __init__(self, session: TadoSession) -> None:
+    def __init__(self, session: TadoSession, weather_refresh: int = 900) -> None:
         self._tado_session = session
+        self._weather_refresh = weather_refresh
         for zone in self._get_zone_list():
             self._zones[zone["id"]] = TadoThermostatZone(self._tado_session, zone["id"])
 
@@ -73,6 +92,16 @@ class TadoThermostatController(ThermostatController):
 
         return [{'id': z["id"], 'name': z["name"]}
                 for z in filter(lambda z: z["type"] == "HEATING", zone_details)]
+
+    @property  # type: ignore
+    @weather_updater
+    def external_temperature(self) -> float:
+        return self._outside_temperature
+
+    @property # type: ignore
+    @weather_updater
+    def solar_intensity(self) -> float:
+        return self._solar_intensity
 
     @property
     def zones(self) -> List[Dict[Union[int, str], str]]:
