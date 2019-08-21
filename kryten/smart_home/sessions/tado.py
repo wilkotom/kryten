@@ -1,11 +1,10 @@
 import requests
 from time import sleep, time
-import json
 import logging
 from threading import Thread
 
 from .session import Session
-from ...exceptions import LoginInvalidError, APIOperationNotImplementedError, UnexpectedResultError
+from ...exceptions import LoginInvalidError, UnexpectedResultError
 from typing import Dict, List, Optional, Union, Callable, Any
 from typing_extensions import Final
 
@@ -99,3 +98,4 @@ class TadoSession(Session):
                     self._refresh_token = new_details['refresh_token']
                     self._token_expiry = new_details["expires_in"] + time()
             sleep(10)
+

@@ -1,13 +1,16 @@
-from ..sessions.tado import TadoSession, TadoResponse
+from ..sessions.tado import TadoSession
+from ...metrics import KrytenMetricSender
 from .thermostat import ThermostatController, ThermostatZone
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Callable, Optional
 from typing_extensions import Final
 from ...exceptions import UnexpectedResultError
-from time import time
+from time import time, sleep
+from threading import Thread
+
 import json
 
 
-def weather_updater(func):
+def weather_updater(func: Callable[[ThermostatController], float]) -> Callable[[ThermostatController], float]:
     def update_weather(obj):
         now = time()
         if obj._weather_timestamp + obj._weather_refresh < now:
@@ -78,12 +81,16 @@ class TadoThermostatController(ThermostatController):
     _weather_timestamp: float = 0.0
     _solar_intensity: float
     _outside_temperature: float
+    _metrics_thread: Thread = Thread()
 
-    def __init__(self, session: TadoSession, weather_refresh: int = 900) -> None:
+    def __init__(self, session: TadoSession, metric_sender: Optional[KrytenMetricSender] = None,
+                 weather_refresh: int = 300) -> None:
         self._tado_session = session
         self._weather_refresh = weather_refresh
         for zone in self._get_zone_list():
             self._zones[zone["id"]] = TadoThermostatZone(self._tado_session, zone["id"])
+        if metric_sender is not None:
+            self.__send_metrics(metric_sender)
 
     def _get_zone_list(self) -> List[Dict[Union[int, str], str]]:
         zone_details = self._tado_session.execute_api_call(f'v2/homes/{self._tado_session.home_id}/zones')
@@ -98,7 +105,7 @@ class TadoThermostatController(ThermostatController):
     def external_temperature(self) -> float:
         return self._outside_temperature
 
-    @property # type: ignore
+    @property  # type: ignore
     @weather_updater
     def solar_intensity(self) -> float:
         return self._solar_intensity
@@ -107,6 +114,22 @@ class TadoThermostatController(ThermostatController):
     def zones(self) -> List[Dict[Union[int, str], str]]:
         return self._get_zone_list()
 
-    def zone(self, zone_id: int) -> TadoThermostatZone:
+    def zone(self, zone_id: Union[str, int]) -> TadoThermostatZone:
         return self._zones[zone_id]
+
+    def __send_metrics(self, metric_sender):
+        self._maintain_session = Thread(target=self.__gather_metrics, args=(metric_sender,), daemon=True)
+        self._maintain_session.start()
+
+    def __gather_metrics(self, metric_sender: KrytenMetricSender) -> None:
+        while True:
+            for zone in self.zones:
+                zone_name = zone['name']
+                zone_details = self.zone(zone['id'])
+                metric_sender.send_metric(f"Thermostat.{zone_name}.target", zone_details.target_temperature)
+                metric_sender.send_metric(f"Thermostat.{zone_name}.current", zone_details.current_temperature)
+                metric_sender.send_metric(f"Thermostat.{zone_name}.humidity", zone_details.humidity)
+            metric_sender.send_metric("Thermostat.external.temperature", self.external_temperature, False)
+            metric_sender.send_metric("Thermostat.external.solar_intensity", self.solar_intensity, False)
+            sleep(300)
 

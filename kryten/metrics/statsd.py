@@ -15,12 +15,12 @@ class StatsDMetricSender(KrytenMetricSender):
             print("Warning: TCP Statsd client in use. This is not thread safe.")
             self._statsd_client = statsd.TCPStatsClient(host=hostname, port=port, prefix=prefix)
 
-    def send_metric(self, metric_name: str, value: Union[int, float, None], counter: bool) -> None:
-        if counter:
+    def send_metric(self, metric_name: str, value: Union[int, float, None], increment: bool = False) -> None:
+        if increment:
             self._statsd_client.incr(metric_name, value)
         elif value is not None:
             self._statsd_client.gauge(metric_name, value)
         else:
-            raise ImpossibleRequestError(f"StatsD {'counter' if counter else 'gauge'} {metric_name}", "None")
+            raise ImpossibleRequestError(f"StatsD {'counter' if increment else 'gauge'} {metric_name}", "None")
 
 

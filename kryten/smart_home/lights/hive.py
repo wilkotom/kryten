@@ -1,8 +1,9 @@
 from .light import SmartLightController, SmartLightBulb
 from ..sessions.hive import HiveSession
-from kryten.exceptions import ImpossibleRequestError, OperationNotImplementedError
+from ...exceptions import ImpossibleRequestError, OperationNotImplementedError
+from ...metrics import KrytenMetricSender
 from abc import abstractmethod
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 from threading import Thread
 from time import sleep
 
@@ -201,11 +202,14 @@ class HiveSmartLightController(SmartLightController):
     _session: HiveSession
     _bulbs: Dict[str, HiveSupportedLightBulb] = {}
 
-    def __init__(self, session: HiveSession) -> None:
+    def __init__(self, session: HiveSession, metric_sender: Optional[KrytenMetricSender] = None) -> None:
         self._session = session
         self._generate_light_list()
         updater_thread = Thread(target=self._updater_thread, args=(20,))
         updater_thread.start()
+        if metric_sender is not None:
+            metrics_thread = Thread(target=self.__send_metrics, args=(metric_sender, 20))
+            metrics_thread.start()
 
     def bulb(self, light_id: str) -> HiveSupportedLightBulb:
         return self._bulbs[light_id]
@@ -235,4 +239,12 @@ class HiveSmartLightController(SmartLightController):
                     self._bulbs[device["id"]]._update_attributes_from_hive(device["state"]["brightness"],
                                                                            device["state"]["status"] == "ON",
                                                                            device["props"]["online"])
+            sleep(interval)
+
+    def __send_metrics(self, metric_sender: KrytenMetricSender, interval: int = 20):
+        while True:
+            for device in self._bulbs.values():
+                device_name = device.name.replace(u"\u2018", "'").replace(u"\u2019", "'")
+                metric_sender.send_metric(f"Bulb.{device_name}.brightness", device.brightness)
+                metric_sender.send_metric(f"Bulb.{device_name}.power", 1 if device.power else 0)
             sleep(interval)
