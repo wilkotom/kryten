@@ -1,11 +1,15 @@
 import requests
 from time import sleep, time
+from datetime import datetime
 import logging
+import json
+from random import randint
 from threading import Thread
+from json.decoder import JSONDecodeError
 
 from .session import Session
 from ...exceptions import LoginInvalidError, UnexpectedResultError
-from typing import Dict, List, Optional, Union, Callable, Any
+from typing import Dict, List, Optional, Union, Callable, Any, Tuple
 from typing_extensions import Final
 
 TadoResponse = Union[List[Dict[str, Any]], Dict[str, Any]]
@@ -22,6 +26,7 @@ class TadoSession(Session):
     _refresh_token: Optional[str] = None
     _token_expiry: int = 0
     __logger: logging.Logger
+    __call_cache: dict[str, Tuple[int, dict[Any, Any]]]
 
     _tado_home_id: str
     _tado: Final[str] = 'https://my.tado.com/api/'
@@ -34,7 +39,6 @@ class TadoSession(Session):
         self._password = password
         self._debug = debug
         self.__logger = logging.getLogger(__name__)
-        self.__logger.setLevel(log_level)
         self.__create_session()
 
     def __create_session(self) -> None:
@@ -69,6 +73,7 @@ class TadoSession(Session):
 
     def execute_api_call(self, path: str, payload: Optional[Dict[str, Union[bool, str, int]]] = None,
                          method: str = "GET") -> TadoResponse:
+
         self.__logger.debug(f"Sending {method} request for {path}")
         supported_ops: Dict[str, Callable[..., requests.Response]] = {"GET": requests.get,
                                                                       "POST": requests.post}
@@ -76,26 +81,51 @@ class TadoSession(Session):
                                          headers={"Authorization": f"Bearer {self._bearer_token}"})
         self.__logger.debug(f"Response was {response.status_code}")
 
+        if response.status_code == 401:
+            self.__logger.debug(f"Token was rejected- reinitialising session")
+            self.__create_session()
+            response = supported_ops[method](f"{self._tado}{path}", json=payload,
+                                             headers={"Authorization": f"Bearer {self._bearer_token}"})
+        try:
+            if not response.json():
+                return {}
+        except JSONDecodeError:
+            return {}
         parsed_response: Dict[str, Any] = response.json()
         return parsed_response
 
     def __renew_token(self) -> None:
         post_data = {'client_id': 'tado-web-app',
                      'grant_type': 'refresh_token',
-                     'refresh_token': self._refresh_token,
                      'scope': 'home.user',
                      'client_secret': self._oath_client_secret}
-        while True and self._refresh_token is not None:
-            if self._token_expiry < time() + 60:
-                renewal = requests.post(self._oath_url, post_data)
-                self.__logger.debug(renewal.json())
-                if renewal.status_code != 200:
-                    self.__create_session()
-                    break
-                else:
-                    new_details = renewal.json()
-                    self._bearer_token = new_details['access_token']
-                    self._refresh_token = new_details['refresh_token']
-                    self._token_expiry = new_details["expires_in"] + time()
-            sleep(10)
 
+        while True and self._refresh_token is not None:
+            post_data['refresh_token'] = self._refresh_token
+            try:
+                if self._token_expiry < time() + 60:
+                    renewal = requests.post(self._oath_url, post_data)
+                    self.__logger.debug(renewal.json())
+                    if renewal.status_code != 200:
+                        post_data = {'client_id': 'tado-web-app',
+                                     'grant_type': 'password',
+                                     'scope': 'home.user',
+                                     'username': self._username,
+                                     'password': self._password,
+                                     'client_secret': self._oath_client_secret}
+                        bearer_details = requests.post(self._oath_url, data=post_data)
+                        if bearer_details.status_code != 200:
+                            raise LoginInvalidError("Tado", self._username)
+                        bearer_json = bearer_details.json()
+                        self._token_expiry = bearer_json["expires_in"] + time()
+                        self._bearer_token = bearer_json["access_token"]
+                        self._refresh_token = bearer_json["refresh_token"]
+
+                    else:
+                        new_details = renewal.json()
+                        self._bearer_token = new_details['access_token']
+                        self._refresh_token = new_details['refresh_token']
+                        self._token_expiry = new_details["expires_in"] + time()
+            except requests.exceptions.ConnectionError:
+                print(f"Connection to {self._oath_url} failed")
+            sleep(randint(0, 10))

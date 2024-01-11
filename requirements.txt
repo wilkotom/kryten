@@ -3,3 +3,4 @@ flask
 flask-restplus
 graphyte
 statsd
+prometheus_client

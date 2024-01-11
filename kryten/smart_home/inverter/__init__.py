@@ -1,0 +1,1 @@
+from .solis import SolisSolarPowerInverter
