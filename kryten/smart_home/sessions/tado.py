@@ -77,19 +77,22 @@ class TadoSession(Session):
         self.__logger.debug(f"Sending {method} request for {path}")
         supported_ops: Dict[str, Callable[..., requests.Response]] = {"GET": requests.get,
                                                                       "POST": requests.post}
-        response = supported_ops[method](f"{self._tado}{path}", json=payload,
-                                         headers={"Authorization": f"Bearer {self._bearer_token}"})
-        self.__logger.debug(f"Response was {response.status_code}")
+        try:
 
-        if response.status_code == 401:
-            self.__logger.debug(f"Token was rejected- reinitialising session")
-            self.__create_session()
             response = supported_ops[method](f"{self._tado}{path}", json=payload,
                                              headers={"Authorization": f"Bearer {self._bearer_token}"})
-        try:
+            self.__logger.debug(f"Response was {response.status_code}")
+
+            if response.status_code == 401:
+                self.__logger.debug(f"Token was rejected- reinitialising session")
+                self.__create_session()
+                response = supported_ops[method](f"{self._tado}{path}", json=payload,
+                                                 headers={"Authorization": f"Bearer {self._bearer_token}"})
             if not response.json():
                 return {}
         except JSONDecodeError:
+            return {}
+        except requests.ConnectionError:
             return {}
         parsed_response: Dict[str, Any] = response.json()
         return parsed_response
