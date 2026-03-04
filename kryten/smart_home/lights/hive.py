@@ -200,10 +200,11 @@ HiveSupportedLightBulb = Union[HiveWarmWhiteBulb, HiveCoolToWarmWhiteLightBulb, 
 
 class HiveSmartLightController(SmartLightController):
     _session: HiveSession
-    _bulbs: Dict[str, HiveSupportedLightBulb] = {}
+    _bulbs: Dict[str, HiveSupportedLightBulb]
 
     def __init__(self, session: HiveSession, metric_sender: Optional[KrytenMetricSender] = None) -> None:
         self._session = session
+        self._bulbs = {}
         self._generate_light_list()
         updater_thread = Thread(target=self._updater_thread, args=(20,))
         updater_thread.start()

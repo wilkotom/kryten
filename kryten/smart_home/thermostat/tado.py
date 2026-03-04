@@ -80,18 +80,20 @@ class TadoThermostatZone(ThermostatZone):
 
 class TadoThermostatController(ThermostatController):
     _tado_session: TadoSession
-    _zones: Dict[Union[int, str], TadoThermostatZone] = {}
-    _zone_list: List[Dict[Union[int, str], str]] = []
+    _zones: Dict[Union[int, str], TadoThermostatZone]
+    _zone_list: List[Dict[Union[int, str], str]]
     _weather_refresh: Final[int]
-    _weather_timestamp: float = 0.0
+    _weather_timestamp: float
     _solar_intensity: float
     _outside_temperature: float
-    _metrics_thread: Thread = Thread()
 
     def __init__(self, session: TadoSession, metric_sender: Optional[KrytenMetricSender] = None,
                  weather_refresh: int = 300) -> None:
         self._tado_session = session
         self._weather_refresh = weather_refresh
+        self._zones = {}
+        self._zone_list = []
+        self._weather_timestamp = 0.0
         for zone in self._get_zone_list():
             self._zones[zone["id"]] = TadoThermostatZone(self._tado_session, zone["id"])
         if metric_sender is not None:

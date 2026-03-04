@@ -104,12 +104,6 @@ class TestTadoThermostatZone:
 
 
 class TestTadoThermostatController:
-    def setup_method(self):
-        # Reset class-level mutables between tests
-        TadoThermostatController._zones = {}
-        TadoThermostatController._zone_list = []
-        TadoThermostatController._weather_timestamp = 0.0
-
     def _make_controller(self, zone_list=None, zone_state=None, weather=None):
         if zone_list is None:
             zone_list = ZONE_LIST

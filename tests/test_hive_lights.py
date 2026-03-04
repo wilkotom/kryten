@@ -159,10 +159,6 @@ class TestHiveWarmWhiteBulbFade:
 
 
 class TestHiveSmartLightController:
-    def setup_method(self):
-        # Reset the class-level mutable _bulbs dict between tests
-        HiveSmartLightController._bulbs = {}
-
     def _make_controller(self, devices=None):
         if devices is None:
             devices = [DEVICE_DICT]
